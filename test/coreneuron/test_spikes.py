@@ -81,6 +81,7 @@ def test_spikes(
 
     coreneuron.enable = True
     coreneuron.gpu = enable_gpu
+    old_file_mode = coreneuron.file_mode
     coreneuron.file_mode = file_mode
     coreneuron.verbose = 0
     corenrn_all_spike_t = h.Vector()
@@ -128,6 +129,8 @@ def test_spikes(
             run(mode)
     else:
         run(0)
+
+    coreneuron.file_mode = old_file_mode
 
     return h
 
