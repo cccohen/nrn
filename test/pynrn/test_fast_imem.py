@@ -5,6 +5,12 @@ from neuron.tests.utils.strtobool import strtobool
 import os
 
 from neuron import config, gui, h
+from neuron.tests.utils import (
+    cache_efficient,
+    parallel_context,
+    num_threads,
+)
+
 
 h.load_file("stdrun.hoc")  # for h.cvode_active
 
@@ -253,7 +259,6 @@ def print_fast_imem():
 
 
 def test_fastimem_corenrn():
-    pc = h.ParallelContext()
     ncell = 5
     cvode = h.CVode()
     cvode.cache_efficient(0)
@@ -294,8 +299,8 @@ def test_fastimem_corenrn():
         h.finitialize()
 
     def run(tstop):
-        pc.set_maxstep(10)
-        with gui.disabled():
+        with gui.disabled(), parallel_context() as pc:
+            pc.set_maxstep(10)
             init_v()
             pc.psolve(tstop)
 
@@ -337,65 +342,56 @@ def test_fastimem_corenrn():
     # null comparison with the side effect of clearing imem
     compare("cache inefficient NEURON")
 
-    cvode.cache_efficient(1)
-    for nth in [2, 1]:  # leaves us in 1-threaded mode
-        pc.nthread(nth)
-        run(tstop)
-        compare("cache efficient NEURON with {} threads".format(nth))
+    for nth in [1, 2]:
+        with cache_efficient(True), parallel_context() as pc, num_threads(pc, nth):
+            run(tstop)
+            compare("cache efficient NEURON with {} threads".format(nth))
 
     # This leaves nthread=1, other values cause errors in the CoreNEURON tests below
     if coreneuron_available():
-        cvode.cache_efficient(1)  # coreneuron_available() resets this
         from neuron import coreneuron
 
-        coreneuron.enable = True
-        coreneuron.verbose = 0
-        coreneuron.gpu = strtobool(os.environ.get("CORENRN_ENABLE_GPU", "false"))
-        tolerance = 5e-11
-        run(tstop)
-        compare("CoreNEURON online mode", rel_tol=tolerance)
-        coreneuron.enable = False
+        with cache_efficient(True), coreneuron(
+            verbose=0, gpu=strtobool(os.environ.get("CORENRN_ENABLE_GPU", "false"))
+        ), parallel_context() as pc:
+            with coreneuron(enable=True):
+                tolerance = 5e-11
+                run(tstop)
+                compare("CoreNEURON online mode", rel_tol=tolerance)
 
-        tvec = h.Vector().record(h._ref_t)
-        init_v()
-        while h.t < tstop - h.dt / 2:
-            dt_above = 1.1 * h.dt  # comfortably above dt to avoid 0 step advance
-            coreneuron.enable = True
-            told = h.t
-            pc.psolve(h.t + dt_above)
-            assert h.t > told
-            coreneuron.enable = False
-            pc.psolve(h.t + dt_above)
-        compare("Checking i_membrane_ trajectories", rel_tol=tolerance)
+            tvec = h.Vector().record(h._ref_t)
+            init_v()
+            while h.t < tstop - h.dt / 2:
+                dt_above = 1.1 * h.dt  # comfortably above dt to avoid 0 step advance
+                with coreneuron(enable=True):
+                    told = h.t
+                    pc.psolve(h.t + dt_above)
+                    assert h.t > told
+                pc.psolve(h.t + dt_above)
+            compare("Checking i_membrane_ trajectories", rel_tol=tolerance)
 
-        print(
-            "For file mode (offline) coreneuron comparison of i_membrane_ initialization",
-            flush=True,
-        )
+            print(
+                "For file mode (offline) coreneuron comparison of i_membrane_ initialization",
+                flush=True,
+            )
 
-        init_v()
-        print_fast_imem()
+            init_v()
+            print_fast_imem()
 
-        # The cells must have gids.
-        for i, cell in enumerate(cells):
-            pc.set_gid2node(i, pc.id())
-            sec = cell.secs[0]
-            pc.cell(i, h.NetCon(sec(0.5)._ref_v, None, sec=sec))
+            # The cells must have gids.
+            for i, cell in enumerate(cells):
+                pc.set_gid2node(i, pc.id())
+                sec = cell.secs[0]
+                pc.cell(i, h.NetCon(sec(0.5)._ref_v, None, sec=sec))
 
-        # Write the data files
-        init_v()
-        pc.nrncore_write("./corenrn_data")
+            # Write the data files
+            init_v()
+            pc.nrncore_write("./corenrn_data")
 
-        # args needed for offline run of coreneuron
-        coreneuron.enable = True
-        old_file_mode = coreneuron.file_mode
-        coreneuron.file_mode = True
-
-        arg = coreneuron.nrncore_arg(tstop)
-        coreneuron.enable = False
-        coreneuron.file_mode = old_file_mode
-        pc.gid_clear()
-        print(arg)
+            # args needed for offline run of coreneuron
+            with coreneuron(enable=True, file_mode=True):
+                arg = coreneuron.nrncore_arg(tstop)
+            print(arg)
 
     del imem_updater, imem
     cvode.use_fast_imem(0)
