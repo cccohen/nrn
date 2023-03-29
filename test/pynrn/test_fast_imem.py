@@ -7,12 +7,11 @@ import os
 from neuron import config, gui, h
 from neuron.tests.utils import (
     cache_efficient,
+    cvode_enabled,
+    fast_imem,
     parallel_context,
     num_threads,
 )
-
-
-h.load_file("stdrun.hoc")  # for h.cvode_active
 
 
 class Cell:
@@ -201,17 +200,14 @@ def run(tstop, ics, tolerance):
 def test_fastimem():
     cells = [Cell(id, 10) for id in range(2)]
     # h.topology()
-    cvode = h.CVode()
     ics = h.List("IClamp")
     syns = h.List("ExpSyn")
-    cvode.use_fast_imem(1)
-    h.finitialize(-65)
-    run(1.0, ics, 1e-13)
-    total_syn_g(syns)
-    h.cvode_active(1)
-    run(1.0, ics, 1e-12)
-    cvode.use_fast_imem(0)
-    h.cvode_active(0)
+    with fast_imem(True):
+        h.finitialize(-65)
+        run(1.0, ics, 1e-13)
+        total_syn_g(syns)
+        with cvode_enabled(True):
+            run(1.0, ics, 1e-12)
 
 
 def coreneuron_available():
@@ -260,32 +256,6 @@ def print_fast_imem():
 
 def test_fastimem_corenrn():
     ncell = 5
-    cvode = h.CVode()
-    cvode.cache_efficient(0)
-    # If the gui has been imported (possibly by another test) then there is a
-    # thread asynchronously calling process_events -- make sure that doesn't
-    # happen partway through creating cells
-    with gui.disabled():
-        cells = [Cell(id, 10) for id in range(ncell)]
-    cvode.use_fast_imem(1)
-
-    # When nthread changes, or internal model data needs to be reallocated,
-    # pointers need to be updated. Use of i_membrane_ requires that the user
-    # update the pointers to i_membrane_.
-    imem = []
-
-    def imem_update():
-        nonlocal imem
-        with gui.disabled():
-            imem = [
-                h.Vector().record(cell.ics[0], cell.secs[3](0.5)._ref_i_membrane_)
-                for cell in cells
-            ]
-
-    imem_updater = h.PtrVector(1)
-    imem_updater.ptr_update_callback(imem_update)
-    imem_update()
-
     tstop = 1.0
 
     def init_v():
@@ -298,21 +268,7 @@ def test_fastimem_corenrn():
                 seg.v = -65.0 + r.uniform(0, 5)
         h.finitialize()
 
-    def run(tstop):
-        with gui.disabled(), parallel_context() as pc:
-            pc.set_maxstep(10)
-            init_v()
-            pc.psolve(tstop)
-
-    # standard
-    run(tstop)
-    imem_std = [vec.c() for vec in imem]
-    max_abs_imem = [max(abs(x) for x in vec) for vec in imem_std]
-    if not all(x > 0 for x in max_abs_imem):
-        print(max_abs_imem, flush=True)
-        assert False
-
-    def compare(name, rel_tol=0.0):
+    def compare(name, imem, imem_std, rel_tol=0.0):
         print("Comparing {}".format(name), flush=True)
         keep_going = True
         for i, (ref_vec, new_vec) in enumerate(zip(imem_std, imem)):
@@ -339,62 +295,100 @@ def test_fastimem_corenrn():
             new_vec.resize(0)
         assert keep_going
 
-    # null comparison with the side effect of clearing imem
-    compare("cache inefficient NEURON")
+    # If the gui has been imported (possibly by another test) then there is a
+    # thread asynchronously calling process_events -- make sure that doesn't
+    # happen partway through creating cells
+    with gui.disabled(), parallel_context() as pc, fast_imem(True):
+        cells = [Cell(id, 10) for id in range(ncell)]
 
-    for nth in [1, 2]:
-        with cache_efficient(True), parallel_context() as pc, num_threads(pc, nth):
+        # When nthread changes, or internal model data needs to be reallocated,
+        # pointers need to be updated. Use of i_membrane_ requires that the user
+        # update the pointers to i_membrane_.
+        imem = []
+
+        def imem_update():
+            nonlocal imem
+            imem = [
+                h.Vector().record(cell.ics[0], cell.secs[3](0.5)._ref_i_membrane_)
+                for cell in cells
+            ]
+
+        imem_updater = h.PtrVector(1)
+        imem_updater.ptr_update_callback(imem_update)
+        imem_update()
+
+        def run(tstop):
+            pc.set_maxstep(10)
+            init_v()
+            pc.psolve(tstop)
+
+        # standard
+        with cache_efficient(False):
             run(tstop)
-            compare("cache efficient NEURON with {} threads".format(nth))
+        imem_std = [vec.c() for vec in imem]
+        max_abs_imem = [max(abs(x) for x in vec) for vec in imem_std]
+        assert all(x > 0 for x in max_abs_imem)
 
-    # This leaves nthread=1, other values cause errors in the CoreNEURON tests below
-    if coreneuron_available():
-        from neuron import coreneuron
+        def cmp(name, **kwargs):
+            compare(name, imem, imem_std, **kwargs)
 
-        with cache_efficient(True), coreneuron(
-            verbose=0, gpu=strtobool(os.environ.get("CORENRN_ENABLE_GPU", "false"))
-        ), parallel_context() as pc:
-            with coreneuron(enable=True):
-                tolerance = 5e-11
+        # null comparison with the side effect of clearing imem
+        cmp("cache inefficient NEURON")
+
+        for nth in [1, 2]:
+            with cache_efficient(True), num_threads(pc, nth):
                 run(tstop)
-                compare("CoreNEURON online mode", rel_tol=tolerance)
+                cmp("cache efficient NEURON with {} threads".format(nth))
 
-            tvec = h.Vector().record(h._ref_t)
-            init_v()
-            while h.t < tstop - h.dt / 2:
-                dt_above = 1.1 * h.dt  # comfortably above dt to avoid 0 step advance
+        if coreneuron_available():
+            from neuron import coreneuron
+
+            with cache_efficient(True), coreneuron(
+                verbose=0, gpu=strtobool(os.environ.get("CORENRN_ENABLE_GPU", "false"))
+            ):
                 with coreneuron(enable=True):
-                    told = h.t
+                    tolerance = 5e-11
+                    run(tstop)
+                    cmp("CoreNEURON online mode", rel_tol=tolerance)
+
+                tvec = h.Vector().record(h._ref_t)
+                init_v()
+                while h.t < tstop - h.dt / 2:
+                    dt_above = (
+                        1.1 * h.dt
+                    )  # comfortably above dt to avoid 0 step advance
+                    with coreneuron(enable=True):
+                        told = h.t
+                        pc.psolve(h.t + dt_above)
+                        assert h.t > told
                     pc.psolve(h.t + dt_above)
-                    assert h.t > told
-                pc.psolve(h.t + dt_above)
-            compare("Checking i_membrane_ trajectories", rel_tol=tolerance)
+                cmp("Checking i_membrane_ trajectories", rel_tol=tolerance)
 
-            print(
-                "For file mode (offline) coreneuron comparison of i_membrane_ initialization",
-                flush=True,
-            )
+                # olupton 2023-03-29 where are these data files used?
+                print(
+                    "For file mode (offline) coreneuron comparison of i_membrane_ initialization",
+                    flush=True,
+                )
 
-            init_v()
-            print_fast_imem()
+                init_v()
+                print_fast_imem()
 
-            # The cells must have gids.
-            for i, cell in enumerate(cells):
-                pc.set_gid2node(i, pc.id())
-                sec = cell.secs[0]
-                pc.cell(i, h.NetCon(sec(0.5)._ref_v, None, sec=sec))
+                # The cells must have gids.
+                for i, cell in enumerate(cells):
+                    pc.set_gid2node(i, pc.id())
+                    sec = cell.secs[0]
+                    pc.cell(i, h.NetCon(sec(0.5)._ref_v, None, sec=sec))
 
-            # Write the data files
-            init_v()
-            pc.nrncore_write("./corenrn_data")
+                # Write the data files
+                init_v()
+                pc.nrncore_write("./corenrn_data")
 
-            # args needed for offline run of coreneuron
-            with coreneuron(enable=True, file_mode=True):
-                arg = coreneuron.nrncore_arg(tstop)
-            print(arg)
+                # args needed for offline run of coreneuron
+                with coreneuron(enable=True, file_mode=True):
+                    arg = coreneuron.nrncore_arg(tstop)
+                print(arg)
 
-    del imem_updater, imem
-    cvode.use_fast_imem(0)
+        del imem_updater, imem
 
 
 if __name__ == "__main__":
