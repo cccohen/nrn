@@ -176,10 +176,11 @@ foreach(mpiexec "" "_mpiexec")
     COMMAND ${python} -c "from neuron import h$<SEMICOLON> h.quit()")
 endforeach()
 
-# =============================================================================
-# Add pytest
-# =============================================================================
-if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
+# ============================================================================================
+# Add python tests. pytest is a compulsory dependency when Python and tests are enabled, while
+# pytest-cov and coverage are optional dependencies.
+# ============================================================================================
+if(NRN_ENABLE_PYTHON)
   # use `--capture=tee-sys`: combines 'sys' and '-s', capturing sys.stdout/stderr and passing it
   # along to the actual sys.stdout/stderr
   set(pytest_args --capture=tee-sys)
@@ -188,6 +189,17 @@ if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
     list(APPEND pytest_args --cov-report=xml --cov=neuron)
   endif()
   set(pytest -m pytest ${pytest_args})
+  if(COVERAGE_FOUND)
+    # Might want to skip this when AddressSanitizer is enabled -- TBC.
+    # ~~~
+    # We want to use either:
+    #   ${PYTHON_EXECUTABLE} ${pytest} path/to/tests
+    # or
+    #   ${PYTHON_EXECUTABLE} ${coverage} path/to/file.py
+    # ~~~
+    # depending on whether or not the tests expect to be driven by pytest.
+    set(coverage -m coverage run)
+  endif()
   # TODO: consider allowing the group-related parts to be dropped here
   nrn_add_test_group(
     CORENEURON
@@ -214,7 +226,7 @@ if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
     NAME example_nmodl
     MODFILE_PATTERNS *.mod *.inc
     SIM_DIRECTORY share/examples/nrniv/nmodl)
-  set(py_exe ${PYTHON_EXECUTABLE})
+  set(py_exe ${PYTHON_EXECUTABLE} ${coverage})
   set(py_preload PRELOAD_SANITIZER)
   set(hoc_exe special)
   foreach(ext hoc py)
@@ -585,7 +597,7 @@ if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
           REQUIRES coreneuron ${processor} ${modtests_preload_sanitizer}
           PROCESSORS 2
           ENVIRONMENT ${processor_env} NRN_TEST_SPIKES_MPI4PY=1
-          COMMAND ${modtests_launch_py_mpi} test/coreneuron/test_spikes.py)
+          COMMAND ${modtests_launch_py_mpi} ${coverage} test/coreneuron/test_spikes.py)
       endif()
       # See https://www.neuron.yale.edu/phpBB/viewtopic.php?t=4297 and links therein for more
       # discussion. Launching this test via `python` (not `special`) does not work on Linux with
@@ -605,7 +617,7 @@ if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
             -python)
         message(STATUS "Hitting workaround")
       else()
-        set(launch_spikes_mpi_file_mode_py ${modtests_launch_py_mpi})
+        set(launch_spikes_mpi_file_mode_py ${modtests_launch_py_mpi} ${coverage})
       endif()
       nrn_add_test(
         GROUP coreneuron_modtests
@@ -631,7 +643,7 @@ if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
         PROCESSORS 6
         ENVIRONMENT ${modtests_processor_env} ${nrnpython_mpi_env}
                     COVERAGE_FILE=.coverage.coreneuron_test_subworlds_py
-        COMMAND ${modtests_launch_py_mpi_subworlds} test/coreneuron/test_subworlds.py)
+        COMMAND ${modtests_launch_py_mpi_subworlds} ${coverage} test/coreneuron/test_subworlds.py)
     endif()
     nrn_add_test_group(
       NAME nmodl_tests_coreneuron
@@ -680,7 +692,7 @@ if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
       GROUP nrnmusic
       NAME music_tests
       PROCESSORS 2
-      COMMAND ${PYTHON_EXECUTABLE} test/music_tests/runtests.py
+      COMMAND ${PYTHON_EXECUTABLE} ${coverage} test/music_tests/runtests.py
       SCRIPT_PATTERNS test/music_tests/*.music test/music_tests/*.py)
   endif()
 endif()
