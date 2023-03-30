@@ -185,12 +185,15 @@ if(NRN_ENABLE_PYTHON)
   # along to the actual sys.stdout/stderr
   set(pytest_args --capture=tee-sys)
   # pytest-cov runs extremely slowly under AddressSanitizer
-  if(NRN_ENABLE_COVERAGE AND PYTEST_COV_FOUND AND NOT "address" IN_LIST NRN_SANITIZERS_LIST)
+  if(NRN_ENABLE_COVERAGE
+     AND PYTEST_COV_FOUND
+     AND NOT "address" IN_LIST NRN_SANITIZERS_LIST)
     list(APPEND pytest_args --cov-report=xml --cov=neuron)
   endif()
   set(pytest -m pytest ${pytest_args})
   if(NRN_ENABLE_COVERAGE AND COVERAGE_FOUND)
     # We want to use either:
+    # ~~~
     #   ${PYTHON_EXECUTABLE} ${pytest} path/to/tests
     # or
     #   ${PYTHON_EXECUTABLE} ${coverage} path/to/file.py
@@ -404,7 +407,8 @@ if(NRN_ENABLE_PYTHON)
         ${MPIEXEC_PREFLAGS}
         ${preload_sanitizer_mpiexec}
         ${PYTHON_EXECUTABLE}
-        ${MPIEXEC_POSTFLAGS} ${coverage})
+        ${MPIEXEC_POSTFLAGS}
+        ${coverage})
   endif()
 
   # External coreneuron can be used for testing but for simplicity we are testing only submodule
