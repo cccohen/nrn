@@ -128,7 +128,7 @@ endforeach()
 
 # ============================================================================================
 # Add python tests. pytest is a compulsory dependency when Python and tests are enabled, while
-# pytest-cov and coverage are optional dependencies.
+# coverage is an optional dependency.
 # ============================================================================================
 if(NRN_ENABLE_PYTHON)
   if(NRN_ENABLE_COVERAGE AND COVERAGE_FOUND)
@@ -371,13 +371,24 @@ if(NRN_ENABLE_PYTHON)
   foreach(processor cpu gpu)
     set(processor_env ${coreneuron_modtests_${processor}_env})
     set(modtests_processor_env ${processor_env} ${sonata_zero_gid_env})
-    # Everything on CPU|GPU, without MPI
+    # Everything except test_subworlds.py on CPU|GPU, without MPI
     nrn_add_pytest(
       GROUP coreneuron_modtests
       NAME ${processor}
       REQUIRES coreneuron ${processor}
       ENVIRONMENT ${modtests_processor_env} ${nrnpython_mpi_env}
-      SCRIPT_PATTERNS *.py)
+      SCRIPT_PATTERNS
+        test_ba.py
+        test_datareturn.py
+        test_direct.py
+        test_fornetcon.py
+        test_inputpresyn.py
+        test_netmove.py
+        test_pointer.py
+        test_spikes.py
+        test_psolve.py
+        test_units.py
+        test_watchrange.py)
     # One HOC test. It can even run on GPU.
     nrn_add_test(
       GROUP coreneuron_modtests

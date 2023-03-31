@@ -824,15 +824,11 @@ if(NRN_ENABLE_TESTS)
   include(CTest)
   nrn_find_python_module(coverage)
   nrn_find_python_module(pytest)
-  nrn_find_python_module(pytest_cov)
   if(NRN_ENABLE_PYTHON)
     if(NOT PYTEST_FOUND)
       message(SEND_ERROR "pytest Python package is required.")
-    elseif(NOT PYTEST_COV_FOUND)
-      message(
-        INFO
-        "pytest-cov package not installed. Python coverage will not be generated from pytest tests."
-      )
+    elseif(NRN_ENABLE_COVERAGE AND NOT COVERAGE_FOUND)
+      message(INFO "coverage Python package not installed. Python coverage will not be generated.")
     endif()
   endif()
   add_dependencies(nrniv_lib copy_share_demo_to_build)
