@@ -114,6 +114,7 @@ jobs:
 
           # CMake options & flags
           cmake_args=(-G Ninja \
+                      -DCMAKE_BUILD_TYPE=Debug \
                       -DCMAKE_C_COMPILER="$CC" \
                       -DCMAKE_CXX_COMPILER="$CXX" \
                       -DNRN_ENABLE_BACKTRACE=ON \
@@ -147,7 +148,7 @@ jobs:
               PATH="${PWD}/bin:${PATH}" \
               LD_LIBRARY_PATH="${PWD}/lib:${LD_LIBRARY_PATH}" \
               DYLD_LIBRARY_PATH="${PWD}/lib:${DYLD_LIBRARY_PATH}" \
-              "${python}" -c "from neuron import h; import neuron; neuron.test();neuron.test_rxd();"
+              coverage run "${python}" -c "from neuron import h; import neuron; neuron.test();neuron.test_rxd();"
           done
           cmake --build . --target cover_html
         env:
