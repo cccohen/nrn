@@ -208,7 +208,8 @@ if(NRN_ENABLE_PYTHON)
     # will accumulate in the test working directories, which might be surprising.
     set(coverage -m coverage run -p)
   endif()
-  # This includes most pytest-driven NEURON tests. MOD files are compiled for CoreNEURON, some tests test CoreNEURON but should be runnable without it.
+  # This includes most pytest-driven NEURON tests. MOD files are compiled for CoreNEURON, some tests
+  # test CoreNEURON but should be runnable without it.
   nrn_add_test_group(
     CORENEURON
     NAME pynrn
@@ -219,19 +220,23 @@ if(NRN_ENABLE_PYTHON)
     NAME basic_tests
     SCRIPT_PATTERNS *.json *.py)
   nrn_add_pytest(
-      GROUP pynrn
-      NAME basic_tests_parallel
-      MPI_RANKS 2
-      PYTEST_ARGS test_netpar.py test_nrntest_fast.py test_partrans.py)
+    GROUP pynrn
+    NAME basic_tests_parallel
+    MPI_RANKS 2
+    PYTEST_ARGS test_netpar.py test_nrntest_fast.py test_partrans.py)
 
   # Mostly to increase coverage, more pytest-driven NEURON tests. Not compiled for CoreNEURON.
-  nrn_add_test_group(NAME coverage_tests MODFILE_PATTERNS mod/*.mod SIM_DIRECTORY test/cover)
+  nrn_add_test_group(
+    NAME coverage_tests
+    MODFILE_PATTERNS mod/*.mod
+    SIM_DIRECTORY test/cover)
   nrn_add_pytest(
     GROUP coverage_tests
     NAME cover_tests
     SCRIPT_PATTERNS *.py *.json)
 
-  # Example HOC and Python scripts, *not* driven by pytest. Not compiled for CoreNEURON. We assume that ${PYTHON_EXECUTABLE} can be used, which might be wrong if NEURON is linked statically?
+  # Example HOC and Python scripts, *not* driven by pytest. Not compiled for CoreNEURON. We assume
+  # that ${PYTHON_EXECUTABLE} can be used, which might be wrong if NEURON is linked statically?
   nrn_add_test_group(
     NAME example_nmodl
     MODFILE_PATTERNS *.mod *.inc
@@ -254,7 +259,8 @@ if(NRN_ENABLE_PYTHON)
     endforeach()
   endforeach()
 
-  # Independent run of each hoc and python file in test/hoc/* folders. Same logic/limitations as example_nmodl.
+  # Independent run of each hoc and python file in test/hoc/* folders. Same logic/limitations as
+  # example_nmodl.
   nrn_add_test_group(
     NAME hoctests
     MODFILE_PATTERNS *.mod
@@ -301,15 +307,18 @@ if(NRN_ENABLE_PYTHON)
           ENVIRONMENT ${change_test_tolerance}
           MPI_RANKS 1
           PYTEST_ARGS --mpi)
-          # COMMAND
-          #   ${MPIEXEC_NAME} ${MPIEXEC_NUMPROC_FLAG} 1 ${MPIEXEC_PREFLAGS}
-          #   ${preload_sanitizer_mpiexec} ${PYTHON_EXECUTABLE} ${MPIEXEC_POSTFLAGS} ${pytest}
-          #   ./test/rxd --mpi)
+        # COMMAND ${MPIEXEC_NAME} ${MPIEXEC_NUMPROC_FLAG} 1 ${MPIEXEC_PREFLAGS}
+        # ${preload_sanitizer_mpiexec} ${PYTHON_EXECUTABLE} ${MPIEXEC_POSTFLAGS} ${pytest}
+        # ./test/rxd --mpi)
       endif()
     endif()
   endif()
-  # We are not currently collecting Python coverage for tests in this group, which are not all pytest-compatible.
-  nrn_add_test_group(CORENEURON NAME parallel MODFILE_PATTERNS test/pynrn/*.mod)
+  # We are not currently collecting Python coverage for tests in this group, which are not all
+  # pytest-compatible.
+  nrn_add_test_group(
+    CORENEURON
+    NAME parallel
+    MODFILE_PATTERNS test/pynrn/*.mod)
   nrn_add_test(
     GROUP parallel
     NAME subworld
@@ -411,7 +420,8 @@ if(NRN_ENABLE_PYTHON)
       COMMAND ${modtests_launch_py} test/coreneuron/test_psolve.py)
   endif()
 
-  # Build and test examples from the NMODL language documentation. First, build and test all of them for NEURON.
+  # Build and test examples from the NMODL language documentation. First, build and test all of them
+  # for NEURON.
   nrn_add_test_group(
     NAME nmodl_tests
     SCRIPT_PATTERNS test/nmodl/*.py
@@ -419,8 +429,8 @@ if(NRN_ENABLE_PYTHON)
   nrn_add_pytest(
     GROUP nmodl_tests
     NAME neuron
-    ENVIRONMENT ${sonata_zero_gid_env} ${nrnpython_mpi_env})  
-  
+    ENVIRONMENT ${sonata_zero_gid_env} ${nrnpython_mpi_env})
+
   # Second, build and test the subset that are compatible with CoreNEURON
   nrn_add_test_group(
     CORENEURON
@@ -428,17 +438,19 @@ if(NRN_ENABLE_PYTHON)
     # Not: test_disc.py test_function_table.py test_kinetic.py
     SCRIPT_PATTERNS test/nmodl/test_table.py
     # Not: cadif.mod, disc.mod, k3st.mod, variabletypes.mod
-    MODFILE_PATTERNS docs/nmodl/mod/fornetcon.mod docs/nmodl/mod/hhwatch.mod docs/nmodl/mod/table.mod)
+    MODFILE_PATTERNS docs/nmodl/mod/fornetcon.mod docs/nmodl/mod/hhwatch.mod
+                     docs/nmodl/mod/table.mod)
   nrn_add_pytest(
     GROUP nmodl_tests_coreneuron
     NAME cpu
     REQUIRES coreneuron
     ENVIRONMENT ${sonata_zero_gid_env} ${nrnpython_mpi_env} NRN_CORENEURON_ENABLE=true)
   nrn_add_pytest(
-      GROUP nmodl_tests_coreneuron
-      NAME gpu
-      REQUIRES coreneuron gpu
-      ENVIRONMENT ${sonata_zero_gid_env} ${nrnpython_mpi_env} NRN_CORENEURON_ENABLE=true CORENRN_ENABLE_GPU=true)
+    GROUP nmodl_tests_coreneuron
+    NAME gpu
+    REQUIRES coreneuron gpu
+    ENVIRONMENT ${sonata_zero_gid_env} ${nrnpython_mpi_env} NRN_CORENEURON_ENABLE=true
+                CORENRN_ENABLE_GPU=true)
 
   nrn_add_test_group(
     CORENEURON
@@ -448,7 +460,8 @@ if(NRN_ENABLE_PYTHON)
     MODFILE_PATTERNS
       "test/coreneuron/mod files/*.mod" "test/coreneuron/mod files/axial.inc"
       test/pynrn/unitstest.mod test/pynrn/version_macros.mod test/gjtests/natrans.mod)
-  # Run some pynrn/ tests with CoreNEURON enabled explicitly. TODO: these should already test CoreNEURON when run inside pynrn if it's available.
+  # Run some pynrn/ tests with CoreNEURON enabled explicitly. TODO: these should already test
+  # CoreNEURON when run inside pynrn if it's available.
   nrn_add_pytest(
     GROUP coreneuron_modtests
     NAME version_macros
@@ -466,8 +479,7 @@ if(NRN_ENABLE_PYTHON)
       NAME ${processor}
       REQUIRES coreneuron ${processor}
       ENVIRONMENT ${modtests_processor_env} ${nrnpython_mpi_env}
-      SCRIPT_PATTERNS test/coreneuron/*.py test/pynrn/test_fast_imem.py
-    )
+      SCRIPT_PATTERNS test/coreneuron/*.py test/pynrn/test_fast_imem.py)
     nrn_add_test(
       GROUP coreneuron_modtests
       NAME direct_hoc_${processor}
