@@ -371,8 +371,8 @@ if(NRN_ENABLE_PYTHON)
   foreach(processor cpu gpu)
     set(processor_env ${coreneuron_modtests_${processor}_env})
     set(modtests_processor_env ${processor_env} ${sonata_zero_gid_env})
-    # Everything except test_subworlds.py on CPU|GPU, without MPI. These tests are two fragile to
-    # run in the same pytest process...
+    # Everything except test_subworlds.py on CPU|GPU, without MPI. These tests are too fragile to
+    # run in the same pytest process/CTest job as each other.
     foreach(
       name
       ba
@@ -382,10 +382,10 @@ if(NRN_ENABLE_PYTHON)
       inputpresyn
       netmove
       pointer
-      spikes
       psolve
+      spikes
       units
-      watchwange)
+      watchrange)
       nrn_add_pytest(
         GROUP coreneuron_modtests
         NAME ${name}_${processor}
