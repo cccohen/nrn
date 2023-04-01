@@ -27,8 +27,8 @@
 
 if(NRN_ENABLE_COVERAGE)
   find_program(LCOV lcov)
-  if(LCOV-NOTFOUND)
-    message(ERROR "lcov is not installed.")
+  if(LCOV STREQUAL "LCOV-NOTFOUND")
+    message(ERROR "lcov is required with NRN_ENABLE_COVERAGE=ON and it was not found.")
   endif()
   string(TOUPPER ${CMAKE_BUILD_TYPE} BUILD_TYPE_UPPER)
   if(NOT BUILD_TYPE_UPPER STREQUAL "DEBUG")
@@ -37,11 +37,7 @@ if(NRN_ENABLE_COVERAGE)
   set(NRN_COVERAGE_FLAGS_UNQUOTED --coverage -fno-inline)
   string(JOIN " " NRN_COVERAGE_FLAGS ${NRN_COVERAGE_FLAGS})
   set(NRN_COVERAGE_LIB gcov)
-  if(NRN_MACOS_BUILD)
-    set(NRN_COVERAGE_LINK_FLAGS -fprofile-arcs)
-  else()
-    set(NRN_COVERAGE_LINK_FLAGS -l${NRN_COVERAGE_LIB})
-  endif()
+  set(NRN_COVERAGE_LINK_FLAGS --coverage)
 
   if(NRN_COVERAGE_FILES)
     # ~~~
