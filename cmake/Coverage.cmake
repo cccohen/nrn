@@ -76,21 +76,42 @@ else()
 endif()
 
 if(NRN_ENABLE_COVERAGE)
-
+  set(cover_clean_command find "${PROJECT_BINARY_DIR}" "-name" "*.gcda" "-type" "f" "-delete")
+  set(cover_baseline_command
+      "${LCOV}" "--capture" "--initial" "--no-external" "--directory" "${PROJECT_SOURCE_DIR}"
+      "--directory" "${PROJECT_BINARY_DIR}" "--output-file" "coverage-base.info")
+  set(cover_collect_command
+      "${LCOV}" "--capture" "--no-external" "--directory" "${PROJECT_SOURCE_DIR}" "--directory"
+      "${PROJECT_BINARY_DIR}" "--output-file" "coverage-run.info")
+  set(cover_combine_command "${LCOV}" "--add-tracefile" "coverage-base.info" "--add-tracefile"
+                            "coverage-run.info" "--output-file" "coverage-combined.info")
+  set(cover_html_command genhtml "coverage-combined.info" "--output-directory" html)
+  add_custom_target(
+    cover_clean
+    COMMAND ${cover_clean_command}
+    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
+  add_custom_target(
+    cover_baseline
+    COMMAND ${cover_baseline_command}
+    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
   add_custom_target(
     cover_begin
-    COMMAND find "${PROJECT_BINARY_DIR}" "-name" "*.gcda" "-type" "f" "-delete"
-    COMMAND "${LCOV}" "--capture" "--initial" "--no-external" "--directory" "${PROJECT_SOURCE_DIR}"
-            "--directory" "${PROJECT_BINARY_DIR}" "--output-file" "coverage-base.info"
-    WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
-
+    COMMAND ${cover_clean_command}
+    COMMAND ${cover_baseline_command}
+    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
+  add_custom_target(
+    cover_collect
+    COMMAND ${cover_collect_command}
+    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
+  add_custom_target(
+    cover_combine
+    COMMAND ${cover_combine_command}
+    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
   add_custom_target(
     cover_html
-    COMMAND ${LCOV} "--capture" "--no-external" "--directory" "${PROJECT_SOURCE_DIR}" "--directory"
-            ${PROJECT_BINARY_DIR} "--output-file" "coverage-run.info"
-    COMMAND "${LCOV}" "--add-tracefile" "coverage-base.info" "--add-tracefile" "coverage-run.info"
-            "--output-file" "coverage-combined.info"
-    COMMAND genhtml "coverage-combined.info" "--output-directory" html
+    COMMAND ${cover_collect_command}
+    COMMAND ${cover_combine_command}
+    COMMAND ${cover_html_command}
     COMMAND echo "View in browser at file://${PROJECT_BINARY_DIR}/html/index.html"
-    WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+    WORKING_DIRECTORY "${PROJECT_BINARY_DIR}")
 endif()
