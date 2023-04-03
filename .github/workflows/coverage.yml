@@ -136,8 +136,8 @@ jobs:
           # The Linux runners apparently have 2 cores, but jobs were being killed when we did not specify this explicitly.
           # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#supported-runners-and-hardware-resources
           # By default we get a modern version of CMake that understands --parallel.
-          cmake --build . --parallel 2
           cmake --build . --target cover_begin
+          cmake --build . --parallel 2
           export PATH=`pwd`/bin:$PATH;
           xvfb-run ctest -VV --output-on-failure;
           cmake --build . --target cover_html
