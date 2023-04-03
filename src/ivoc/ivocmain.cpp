@@ -267,6 +267,7 @@ extern int nrn_global_argc;
 extern const char** nrn_global_argv;
 int always_false;
 extern int nrn_is_python_extension;
+extern void hoc_nrnmpi_init();
 #if NRNMPI_DYNAMICLOAD
 extern void nrnmpi_stubs();
 extern std::string nrnmpi_load(int is_python);
@@ -382,13 +383,6 @@ void hoc_nrnmpi_init() {
 #endif
     hoc_ret();
     hoc_pushx(0.0);
-}
-
-void hoc_nrnmpi_terminate() {
-#if NRNMPI
-    nrnmpi_terminate();
-#endif
-    hoc_retpushx(0.0);
 }
 
 /**
