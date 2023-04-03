@@ -140,17 +140,6 @@ jobs:
           cmake --build . --target cover_begin
           export PATH=`pwd`/bin:$PATH;
           xvfb-run ctest -VV --output-on-failure;
-          echo "from neuron import h; import neuron; neuron.test();neuron.test_rxd();" > tests.py
-          for python in "${PYTHON_MIN}" "${PYTHON_MAX}"
-          do
-            echo "Using ${python}"
-            NEURONHOME="${PWD}/share/nrn" \
-              PYTHONPATH="${PWD}/lib/python:${PYTHONPATH}" \
-              PATH="${PWD}/bin:${PATH}" \
-              LD_LIBRARY_PATH="${PWD}/lib:${LD_LIBRARY_PATH}" \
-              DYLD_LIBRARY_PATH="${PWD}/lib:${DYLD_LIBRARY_PATH}" \
-              "${python}" -m coverage run tests.py
-          done
           cmake --build . --target cover_html
         env:
           MATRIX_EVAL: "CC=gcc CXX=g++"

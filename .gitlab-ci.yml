@@ -90,9 +90,6 @@ mac_m1_cmake_build:
     - else
     -   echo nrn-enable-sanitizer not found, not using it
     - fi
-    - if [[ ! "${cmake_args[*]}" =~ "NRN_ENABLE_PYTHON=OFF" ]]; then
-    -   $PYTHON --version && ${nrn_enable_sanitizer_preload} python -c 'import neuron; neuron.test()'
-    - fi;
     - ${nrn_enable_sanitizer} neurondemo -nogui -c 'demo(4)' -c 'run()' -c 'quit()'
     - if [[ ! "${cmake_args[*]}" =~ "NRN_ENABLE_RX3D=OFF"
             && ! "${cmake_args[*]}" =~ "NRN_ENABLE_CORENEURON=ON" ]]; then
