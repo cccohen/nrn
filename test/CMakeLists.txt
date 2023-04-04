@@ -183,11 +183,12 @@ endforeach()
 if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
   # use `--capture=tee-sys`: combines 'sys' and '-s', capturing sys.stdout/stderr and passing it
   # along to the actual sys.stdout/stderr
-  set(pytest -m pytest --capture=tee-sys)
+  set(pytest_args --capture=tee-sys)
   # pytest-cov runs extremely slowly under AddressSanitizer
   if(PYTEST_COV_FOUND AND NOT "address" IN_LIST NRN_SANITIZERS_LIST)
-    list(APPEND pytest --cov-report=xml --cov=neuron)
+    list(APPEND pytest_args --cov-report=xml --cov=neuron)
   endif()
+  set(pytest -m pytest ${pytest_args})
   # TODO: consider allowing the group-related parts to be dropped here
   nrn_add_test_group(
     CORENEURON
@@ -199,7 +200,7 @@ if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
     PRELOAD_SANITIZER
     ENVIRONMENT COVERAGE_FILE=.coverage.basic_tests
     COMMAND ${PYTHON_EXECUTABLE} ${pytest} ./test/pynrn
-    SCRIPT_PATTERNS test/pynrn/*.py)
+    SCRIPT_PATTERNS test/pynrn/*.json test/pynrn/*.py)
   nrn_add_test_group(NAME datahandle MODFILE_PATTERNS test/datahandle/*.mod)
   nrn_add_test(
     GROUP datahandle
@@ -264,7 +265,7 @@ if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
     nrn_add_test_group(
       NAME rxdmod_tests
       MODFILE_PATTERNS test/rxd/*.mod
-      SCRIPT_PATTERNS test/rxd/*.py test/rxd/3d/*.asc test/rxd/testdata/**/*.dat)
+      SCRIPT_PATTERNS test/rxd/*.py test/rxd/*/*.py test/rxd/3d/*.asc test/rxd/testdata/**/*.dat)
     # These tests include comparisons against saved data, which appears to have been generated using
     # GCC. Other compilers produce larger differences.
     if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Intel")
@@ -293,7 +294,7 @@ if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
       endif()
     endif()
   endif()
-  nrn_add_test_group(NAME parallel MODFILE_PATTERNS NONE)
+  nrn_add_test_group(NAME parallel MODFILE_PATTERNS test/pynrn/*.mod)
   nrn_add_test(
     GROUP parallel
     NAME subworld
@@ -326,6 +327,19 @@ if(NRN_ENABLE_PYTHON AND PYTEST_FOUND)
     SCRIPT_PATTERNS test/parallel_tests/test_bas.py
     COMMAND ${MPIEXEC_NAME} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_OVERSUBSCRIBE} ${MPIEXEC_PREFLAGS}
             nrniv ${MPIEXEC_POSTFLAGS} -mpi -python test/parallel_tests/test_bas.py)
+  # TODO if we need to pass more complicated argument strings then some smarter escaping will be
+  # needed
+  string(JOIN " " pytest_arg_string ${pytest_args})
+  nrn_add_test(
+    GROUP parallel
+    NAME nrntest_fast
+    PROCESSORS 2
+    REQUIRES mpi
+    ENVIRONMENT "NRN_PYTEST_ARGS=${pytest_arg_string}"
+    SCRIPT_PATTERNS test/pynrn/run_pytest.py test/pynrn/test_nrntest_fast.json
+                    test/pynrn/test_nrntest_fast.py
+    COMMAND ${MPIEXEC_NAME} ${MPIEXEC_NUMPROC_FLAG} 2 ${MPIEXEC_OVERSUBSCRIBE} ${MPIEXEC_PREFLAGS}
+            special ${MPIEXEC_POSTFLAGS} -mpi -python test/pynrn/run_pytest.py)
   # CoreNEURON's reports require MPI and segfault if it is not initialised. This is a crude
   # workaround.
   if(CORENRN_ENABLE_REPORTING)
