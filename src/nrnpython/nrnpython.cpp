@@ -8,10 +8,12 @@
 #include <nrnoc2iv.h>
 #include <nrnpy_reg.h>
 #include <hoccontext.h>
-#include <string>
 #include <ocfile.h>  // bool isDirExist(const std::string& path);
 
 #include <hocstr.h>
+
+#include <string>
+#include <sstream>
 extern "C" void nrnpython_real();
 extern "C" int nrnpython_start(int);
 extern int hoc_get_line();
@@ -157,7 +159,24 @@ extern "C" int nrnpython_start(int b) {
         if (_p_pyhome) {
             Py_SetPythonHome(mywstrdup(_p_pyhome));
         }
-        Py_Initialize();
+        // Create a Python configuration, see
+        // https://docs.python.org/3.8/c-api/init_config.html#python-configuration, so that
+        // {nrniv,special} -python behaves as similarly as possible to python. In particular this
+        // affects locale coercion. Under some circumstances Python does not straightforwardly
+        // handle settngs like LC_ALL=C.
+        PyConfig config;
+        PyConfig_InitPythonConfig(&config);
+        // Initialise Python
+        auto const status = Py_InitializeFromConfig(&config);
+        PyConfig_Clear(&config);
+        if (PyStatus_Exception(status)) {
+            std::ostringstream oss;
+            oss << "Could not initialise Python: " << status.err_msg;
+            if (status.func) {
+                oss << " in " << status.func;
+            }
+            throw std::runtime_error(oss.str());
+        }
 #if NRNPYTHON_DYNAMICLOAD
         // return from Py_Initialize means there was no site problem
         nrnpy_site_problem = 0;
