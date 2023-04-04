@@ -34,16 +34,21 @@ class ReportEvent: public DiscreteEvent {
   public:
     ReportEvent(double dt,
                 double tstart,
+                const std::vector<int>& gids_to_report,
                 const VarsToReport& filtered_gids,
                 const char* name,
                 double report_dt,
-                ReportType type);
+                ReportType type,
+                bool all_compartments);
 
     /** on deliver, call libsonata and setup next event */
     void deliver(double t, NetCvode* nc, NrnThread* nt) override;
     bool require_checkpoint() override;
     void summation_alu(NrnThread* nt);
     void lfp_calc(NrnThread* nt);
+    double calculate_iclamp(const std::vector<std::pair<double*, int>>& currents);
+    void update_report_values(int gid, const std::vector<double>& lfp_values);
+    void sum_lfp_values_for_electrodes(int num_electrodes, std::vector<double>& sum_lfp_values, const std::vector<double>& lfp_values);
 
   private:
     double dt;
@@ -55,6 +60,7 @@ class ReportEvent: public DiscreteEvent {
     double tstart;
     VarsToReport vars_to_report;
     ReportType report_type;
+    bool report_all_compartments;
 };
 #endif
 

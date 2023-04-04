@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_CASE(LFP_PointSource_LineSource) {
 #ifdef ENABLE_SONATA_REPORTS
 BOOST_AUTO_TEST_CASE(LFP_ReportEvent) {
     const std::string report_name = "compartment_report";
-    const std::vector<uint64_t> gids = {42, 134};
+    const std::vector<int> gids = {42, 134};
     const std::vector<int> segment_ids = {0, 1, 2, 3, 4};
     std::vector<double> curr(segment_ids.size());
 
@@ -123,11 +123,12 @@ BOOST_AUTO_TEST_CASE(LFP_ReportEvent) {
     for (const auto& gid: gids) {
         mapinfo->mappingvec.push_back(new CellMapping(gid));
         for (const auto& segment: segment_ids) {
-            mapinfo->mappingvec.back()->add_segment_lfp_factor(segment,
-                                                               {segment + 1.0, segment + 2.0});
+            std::vector<double> factors = {segment + 1.0, segment + 2.0};
+            mapinfo->mappingvec.back()->add_segment_lfp_factor(segment, factors);
         }
     }
-    mapinfo->prepare_lfp();
+    bool report_all_values = true;
+    mapinfo->prepare_lfp(report_all_values);
     // Total number of electrodes 2 gids * 2 factors
     BOOST_REQUIRE_EQUAL(mapinfo->_lfp.size(), 4);
 
@@ -172,11 +173,38 @@ BOOST_AUTO_TEST_CASE(LFP_ReportEvent) {
     const double report_dt = 0.1;
     ReportType report_type = CompartmentReport;
 
-    ReportEvent event(dt, tstart, vars_to_report, report_name.data(), report_dt, report_type);
+    ReportEvent event(dt, tstart, gids, vars_to_report, report_name.data(), report_dt, report_type, report_all_values);
     event.lfp_calc(&nt);
 
+    // (0.2 - 0.1)*1 + (0.4 - 0.2)*2 + ... + (1.0 - 0.5)*5 = 5.5
     BOOST_REQUIRE_CLOSE(mapinfo->_lfp[0], 5.5, 1.0);
     BOOST_REQUIRE_CLOSE(mapinfo->_lfp[3], 7.0, 1.0);
+
+    report_all_values = false;
+    mapinfo->prepare_lfp(report_all_values);
+
+    // Total number of electrodes
+    BOOST_REQUIRE_EQUAL(mapinfo->_lfp.size(), 2);
+
+    // Pass _lfp variable to vars_to_report
+    offset_lfp = 0;
+    VarsToReport vars_to_report_sum;
+    std::vector<VarWithMapping> to_report;
+    const auto& cell_mapping = mapinfo->get_cell_mapping(gids[0]);
+    int num_electrodes = cell_mapping->num_electrodes();
+    for (int electrode_id = 0; electrode_id < num_electrodes; electrode_id++) {
+        to_report.emplace_back(VarWithMapping(electrode_id, mapinfo->_lfp.data() + offset_lfp));
+        offset_lfp++;
+    }
+    if (!to_report.empty()) {
+        vars_to_report_sum[0] = to_report;
+    }
+
+    ReportEvent event_sum(dt, tstart, gids, vars_to_report_sum, report_name.data(), report_dt, report_type, report_all_values);
+    event_sum.lfp_calc(&nt);
+
+    BOOST_REQUIRE_CLOSE(mapinfo->_lfp[0], 11, 1.0);
+    BOOST_REQUIRE_CLOSE(mapinfo->_lfp[1], 14, 1.0);
 
     delete mapinfo;
     delete nt.nrn_fast_imem;
