@@ -28,8 +28,6 @@ extern int nrn_main_launch;
 
 // int nrn_global_argc;
 extern char** nrn_global_argv;
-
-extern void nrnpy_augment_path();
 extern void (*p_nrnpython_finalize)();
 extern PyObject* nrnpy_hoc();
 
@@ -375,7 +373,6 @@ extern "C" PyObject* PyInit_hoc() {
 
     nrn_main_launch = 2;
     ivocmain(argc, (const char**) argv, (const char**) env);
-//	nrnpy_augment_path();
 #if NRNPYTHON_DYNAMICLOAD
     nrnpy_site_problem = 0;
 #endif  // NRNPYTHON_DYNAMICLOAD
