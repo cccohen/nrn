@@ -104,6 +104,9 @@ struct PythonConfigWrapper {
     operator PyConfig*() {
         return &config;
     }
+    PyConfig* operator->() {
+        return &config;
+    }
     PyConfig config;
 };
 }  // namespace
@@ -156,13 +159,13 @@ extern "C" int nrnpython_start(int b) {
         if (_p_pyhome) {
             // Py_SetPythonHome is deprecated in Python 3.11+, write to config.home instead.
             check("Could not set PyConfig.home",
-                  PyConfig_SetBytesString(config, &config.config.home, _p_pyhome));
+                  PyConfig_SetBytesString(config, &config->home, _p_pyhome));
         }
         // PySys_SetArgv is deprecated in Python 3.11+, write to config.XXX instead.
         // nrn_global_argv contains the arguments passed to nrniv/special, which are not valid
         // Python arguments, so tell Python not to try and parse them. In future we might like to
         // remove the NEURON-specific arguments and pass whatever is left to Python?
-        config.config.parse_argv = 0;
+        config->parse_argv = 0;
         check("Could not set PyConfig.argv",
               PyConfig_SetBytesArgv(config, nrn_global_argc, nrn_global_argv));
         // Initialise Python
