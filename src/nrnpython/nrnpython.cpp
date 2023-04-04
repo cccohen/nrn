@@ -165,13 +165,13 @@ extern "C" int nrnpython_start(int b) {
         // work with virtual environments.
         // But use only if not overridden by the PYTHONHOME environment variable.
         char* _p_pyhome = getenv("PYTHONHOME");
-        if (_p_pyhome == NULL) {
+        if (!_p_pyhome) {
             _p_pyhome = nrnpy_pyhome;
         }
-        auto const check = [](PyStatus status) {
+        auto const check = [](const char* desc, PyStatus status) {
             if (PyStatus_Exception(status)) {
                 std::ostringstream oss;
-                oss << "Could not initialise Python: " << status.err_msg;
+                oss << desc << ": " << status.err_msg;
                 if (status.func) {
                     oss << " in " << status.func;
                 }
@@ -180,10 +180,11 @@ extern "C" int nrnpython_start(int b) {
         };
         if (_p_pyhome) {
             // Py_SetPythonHome is deprecated, write to config.home instead.
-            check(PyConfig_SetBytesString(&config.config, &config.config.home, _p_pyhome));
+            check("Could not set PyConfig.home",
+                  PyConfig_SetBytesString(&config.config, &config.config.home, _p_pyhome));
         }
         // Initialise Python
-        check(Py_InitializeFromConfig(&config.config));
+        check("Could not initialise Python", Py_InitializeFromConfig(&config.config));
 #if NRNPYTHON_DYNAMICLOAD
         // return from Py_Initialize means there was no site problem
         nrnpy_site_problem = 0;
