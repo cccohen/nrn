@@ -124,12 +124,17 @@ static void copy_argv_wcargv(int argc, char** argv) {
     }
 }
 
-static wchar_t* mywstrdup(char* s) {
-    size_t sz = mbstowcs(NULL, s, 0);
-    wchar_t* ws = new wchar_t[sz + 1];
-    int count = mbstowcs(ws, s, sz + 1);
-    return ws;
-}
+namespace {
+struct PythonConfigWrapper {
+    PythonConfigWrapper() {
+        PyConfig_InitPythonConfig(&config);
+    }
+    ~PythonConfigWrapper() {
+        PyConfig_Clear(&config);
+    }
+    PyConfig config;
+};
+}  // namespace
 
 /** @brief Start the Python interpreter.
  *  @arg b Mode of operation, can be 0 (finalize), 1 (initialize),
@@ -149,6 +154,13 @@ extern "C" int nrnpython_start(int b) {
         if (nrnpy_nositeflag) {
             Py_NoSiteFlag = 1;
         }
+        // Create a Python configuration, see
+        // https://docs.python.org/3.8/c-api/init_config.html#python-configuration, so that
+        // {nrniv,special} -python behaves as similarly as possible to python. In particular this
+        // affects locale coercion. Under some circumstances Python does not straightforwardly
+        // handle settings like LC_ALL=C, so using a different configuration can lead to surprising
+        // differences.
+        PythonConfigWrapper config;
         // nrnpy_pyhome hopefully holds the python base root and should
         // work with virtual environments.
         // But use only if not overridden by the PYTHONHOME environment variable.
@@ -156,27 +168,22 @@ extern "C" int nrnpython_start(int b) {
         if (_p_pyhome == NULL) {
             _p_pyhome = nrnpy_pyhome;
         }
-        if (_p_pyhome) {
-            Py_SetPythonHome(mywstrdup(_p_pyhome));
-        }
-        // Create a Python configuration, see
-        // https://docs.python.org/3.8/c-api/init_config.html#python-configuration, so that
-        // {nrniv,special} -python behaves as similarly as possible to python. In particular this
-        // affects locale coercion. Under some circumstances Python does not straightforwardly
-        // handle settngs like LC_ALL=C.
-        PyConfig config;
-        PyConfig_InitPythonConfig(&config);
-        // Initialise Python
-        auto const status = Py_InitializeFromConfig(&config);
-        PyConfig_Clear(&config);
-        if (PyStatus_Exception(status)) {
-            std::ostringstream oss;
-            oss << "Could not initialise Python: " << status.err_msg;
-            if (status.func) {
-                oss << " in " << status.func;
+        auto const check = [](PyStatus status) {
+            if (PyStatus_Exception(status)) {
+                std::ostringstream oss;
+                oss << "Could not initialise Python: " << status.err_msg;
+                if (status.func) {
+                    oss << " in " << status.func;
+                }
+                throw std::runtime_error(oss.str());
             }
-            throw std::runtime_error(oss.str());
+        };
+        if (_p_pyhome) {
+            // Py_SetPythonHome is deprecated, write to config.home instead.
+            check(PyConfig_SetBytesString(&config.config, &config.config.home, _p_pyhome));
         }
+        // Initialise Python
+        check(Py_InitializeFromConfig(&config.config));
 #if NRNPYTHON_DYNAMICLOAD
         // return from Py_Initialize means there was no site problem
         nrnpy_site_problem = 0;
