@@ -37,16 +37,27 @@ if(NRN_ENABLE_PYTHON_DYNAMIC AND NRN_PYTHON_DYNAMIC)
     )
   endif()
   set(PYTHON_EXECUTABLE "${NRN_PYTHON_DYNAMIC_0}")
-  set(NRN_PYTHON_EXECUTABLES ${NRN_PYTHON_DYNAMIC})
+  set(python_executables ${NRN_PYTHON_DYNAMIC})
 else()
   # In other cases, there is just one Python and it's PYTHON_EXECUTABLE.
-  set(NRN_PYTHON_EXECUTABLES "${PYTHON_EXECUTABLE}")
+  set(python_executables "${PYTHON_EXECUTABLE}")
+endif()
+# In any case, the default (PYTHON_EXECUTABLE) should always be the zeroth entry in the list of
+# Pythons
+list(GET python_executables 0 python_executables_0)
+if(NOT python_executables_0 STREQUAL PYTHON_EXECUTABLE)
+  message(
+    FATAL_ERROR
+      "PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE} should be the zeroth entry in ${python_executables}")
 endif()
 
 # For each Python in NRN_PYTHON_EXECUTABLES, find its version number, it's include directory, and
 # its library path. Store those in the new lists NRN_PYTHON_VERSIONS, NRN_PYTHON_INCLUDES and
 # NRN_PYTHON_LIBRARIES. Set NRN_PYTHON_COUNT to be the length of those lists, and
 # NRN_PYTHON_ITERATION_LIMIT to be NRN_PYTHON_COUNT - 1.
+set(NRN_PYTHON_EXECUTABLES
+    ""
+    CACHE INTERNAL "" FORCE)
 set(NRN_PYTHON_VERSIONS
     ""
     CACHE INTERNAL "" FORCE)
@@ -57,38 +68,56 @@ set(NRN_PYTHON_LIBRARIES
     ""
     CACHE INTERNAL "" FORCE)
 if(NRN_ENABLE_PYTHON)
-  foreach(pyexe ${NRN_PYTHON_EXECUTABLES})
+  foreach(pyexe ${python_executables})
     message(STATUS "Checking if ${pyexe} is a working python")
-    set(pyinc_code "import sysconfig; print(sysconfig.get_path('include'))")
-    set(pyver_code "import sys; print('{}.{}'.format(*sys.version_info[:2]))")
-    execute_process(
-      COMMAND "${pyexe}" -c "${pyinc_code}; ${pyver_code}"
-      RESULT_VARIABLE result
-      OUTPUT_VARIABLE std_output
-      ERROR_VARIABLE err_output
-      OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT result EQUAL 0)
-      message(FATAL_ERROR "Error checking ${pyexe} : ${result}\n${std_output}\n${err_output}")
+    if(NOT IS_ABSOLUTE "${pyexe}")
+      # Find the full path to ${pyexe} as Python3_EXECUTABLE does not accept relative paths.
+      find_program(
+        "${pyexe}_full" "${pyexe}"
+        PATHS ENV PATH
+        NO_DEFAULT_PATH)
+      if(${pyexe}_full STREQUAL "${pyexe}_full-NOTFOUND")
+        message(FATAL_ERROR "Could not resolve ${pyexe} to an absolute path")
+      endif()
+      set(pyexe "${${pyexe}_full}")
     endif()
-    # cmake-format: off
-    string(REGEX MATCH [0-9.]*$ PYVER ${std_output})
-    string(REGEX MATCH ^[^\n]* incval ${std_output})
-    # cmake-format: on
-    # Unset the variables set by PythonLibsNew so we can start afresh.
-    set(PYTHON_EXECUTABLE ${pyexe})
-    unset(PYTHON_INCLUDE_DIR CACHE)
-    unset(PYTHON_LIBRARY CACHE)
-    set(PYTHON_PREFIX "")
-    set(PYTHON_LIBRARIES "")
-    set(PYTHON_INCLUDE_DIRS "")
-    set(PYTHON_MODULE_EXTENSION "")
-    set(PYTHON_MODULE_PREFIX "")
-    find_package(PythonLibsNew ${PYVER} REQUIRED)
-    # convert major.minor to majorminor
-    string(REGEX REPLACE [.] "" PYVER ${PYVER})
-    list(APPEND NRN_PYTHON_VERSIONS "${PYVER}")
-    list(APPEND NRN_PYTHON_INCLUDES "${incval}")
-    list(APPEND NRN_PYTHON_LIBRARIES "${PYTHON_LIBRARIES}")
+    # Run find_package(Python3 ...) in a subprocess, so there is no pollution of CMakeCache.txt and
+    # so on. Our desire to include multiple Python versions in one build means we have to handle
+    # lists of versions/libraries/... manually.
+    execute_process(
+      COMMAND ${CMAKE_COMMAND} -D "Python3_EXECUTABLE=${pyexe}" -P
+              ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ExecuteFindPython.cmake
+      RESULT_VARIABLE result
+      OUTPUT_VARIABLE stdout
+      ERROR_VARIABLE stderr)
+    if(NOT result EQUAL 0)
+      message(FATAL_ERROR "find_package could not discover information about ${pyexe}\n"
+                          "status=${result}\n" "stdout:\n${stdout}\n" "stderr:\n${stderr}\n")
+    endif()
+    # Parse out the variables printed by ExecuteFindPython.cmake
+    foreach(var Python3_INCLUDE_DIRS Python3_LIBRARIES Python3_VERSION_MAJOR Python3_VERSION_MINOR)
+      string(REGEX MATCH "-- ${var}=([^\n]*)\n" _junk "${stdout}")
+      set(${var} "${CMAKE_MATCH_1}")
+    endforeach()
+    # Now Python3_INCLUDE_DIRS and friends correspond to ${pyexe} Assert that there is only one
+    # value per Python version for now, as otherwise we'd need to handle a list of lists...
+    list(LENGTH Python3_INCLUDE_DIRS num_include_dirs)
+    if(NOT num_include_dirs EQUAL 1)
+      message(
+        FATAL_ERROR
+          "Cannot currently handle multiple Python include dirs: ${Python3_INCLUDE_DIRS} from ${pyexe}"
+      )
+    endif()
+    list(LENGTH Python3_LIBRARIES num_libs)
+    if(NOT num_libs EQUAL 1)
+      message(
+        FATAL_ERROR
+          "Cannot currently handle multiple Python libraries: ${Python3_LIBRARIES} from ${pyexe}")
+    endif()
+    list(APPEND NRN_PYTHON_EXECUTABLES "${pyexe}")
+    list(APPEND NRN_PYTHON_VERSIONS "${Python3_VERSION_MAJOR}${Python3_VERSION_MINOR}")
+    list(APPEND NRN_PYTHON_INCLUDES "${Python3_INCLUDE_DIRS}")
+    list(APPEND NRN_PYTHON_LIBRARIES "${Python3_LIBRARIES}")
   endforeach()
 endif()
 list(LENGTH NRN_PYTHON_EXECUTABLES NRN_PYTHON_COUNT)

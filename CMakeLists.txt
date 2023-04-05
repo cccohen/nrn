@@ -236,10 +236,12 @@ cpp_cc_git_submodule(Random123)
 # Juggle PYTHON_EXECUTABLE and NRN_ENABLE_PYTHON_DYNAMIC to make sure that:
 #
 # * PYTHON_EXECUTABLE is the default Python version
-# * NRN_PYTHON_EXECUTABLES is a list of all Python executables to be built against (length >=1 if
-#   NRN_ENABLE_PYTHON_DYNAMIC else == 1)
+# * NRN_PYTHON_EXECUTABLES is a list of absolute paths to all Python executables to be built against
+#   (length >=1 if NRN_ENABLE_PYTHON_DYNAMIC else == 1)
 # * NRN_PYTHON_VERSIONS (38, 311, ...), NRN_PYTHON_INCLUDES and NRN_PYTHON_LIBRARIES are populated
 #   with values patching NRN_PYTHON_EXECUTABLES
+# * NRN_PYTHON_COUNT is set to the number of entries in those lists (i.e. number of Pythons), and
+#   NRN_PYTHON_ITERATION_LIMIT is set to ${NRN_PYTHON_COUNT} - 1
 # =================================================================================================
 include(cmake/PythonHelper.cmake)
 
@@ -962,7 +964,11 @@ if(NRN_ENABLE_PYTHON)
     list(GET NRN_PYTHON_VERSIONS ${val} pyver)
     list(GET NRN_PYTHON_INCLUDES ${val} pyinc)
     list(GET NRN_PYTHON_LIBRARIES ${val} pylib)
-    message(STATUS " python${pyver}")
+    unset(suffix)
+    if(val EQUAL 0)
+      set(suffix " (default)")
+    endif()
+    message(STATUS " python${pyver}${suffix}")
     message(STATUS "  EXE         | ${exe}")
     message(STATUS "  INC         | ${pyinc}")
     message(STATUS "  LIB         | ${pylib}")
