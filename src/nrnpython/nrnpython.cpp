@@ -33,7 +33,7 @@ int nrnpy_pyrun(const char*);
 extern int (*p_nrnpy_pyrun)(const char*);
 extern int nrn_global_argc;
 extern char** nrn_global_argv;
-#if NRNPYTHON_DYNAMICLOAD
+#ifdef NRNPYTHON_DYNAMICLOAD
 int nrnpy_site_problem;
 #endif
 
@@ -149,9 +149,12 @@ extern "C" int nrnpython_start(int b) {
         auto const check = [](const char* desc, PyStatus status) {
             if (PyStatus_Exception(status)) {
                 std::ostringstream oss;
-                oss << desc << ": " << status.err_msg;
-                if (status.func) {
-                    oss << " in " << status.func;
+                oss << desc;
+                if (status.err_msg) {
+                    oss << ": " << status.err_msg;
+                    if (status.func) {
+                        oss << " in " << status.func;
+                    }
                 }
                 throw std::runtime_error(oss.str());
             }
@@ -170,7 +173,7 @@ extern "C" int nrnpython_start(int b) {
               PyConfig_SetBytesArgv(config, nrn_global_argc, nrn_global_argv));
         // Initialise Python
         check("Could not initialise Python", Py_InitializeFromConfig(config));
-#if NRNPYTHON_DYNAMICLOAD
+#ifdef NRNPYTHON_DYNAMICLOAD
         // return from Py_Initialize means there was no site problem
         nrnpy_site_problem = 0;
 #endif
