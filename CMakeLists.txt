@@ -243,6 +243,7 @@ cpp_cc_git_submodule(Random123)
 # * NRN_PYTHON_COUNT is set to the number of entries in those lists (i.e. number of Pythons), and
 #   NRN_PYTHON_ITERATION_LIMIT is set to ${NRN_PYTHON_COUNT} - 1
 # =================================================================================================
+set(NRN_MINIMUM_PYTHON_VERSION 3.8)
 include(cmake/PythonHelper.cmake)
 
 # =============================================================================

@@ -99,6 +99,12 @@ if(NRN_ENABLE_PYTHON)
       string(REGEX MATCH "-- ${var}=([^\n]*)\n" _junk "${stdout}")
       set(${var} "${CMAKE_MATCH_1}")
     endforeach()
+    if(${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR} VERSION_LESS NRN_MINIMUM_PYTHON_VERSION)
+      message(
+        FATAL_ERROR
+          "${pyexe} (${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}) is too old for NEURON, which requires at least ${NRN_MINIMUM_PYTHON_VERSION}"
+      )
+    endif()
     # Now Python3_INCLUDE_DIRS and friends correspond to ${pyexe} Assert that there is only one
     # value per Python version for now, as otherwise we'd need to handle a list of lists...
     list(LENGTH Python3_INCLUDE_DIRS num_include_dirs)
