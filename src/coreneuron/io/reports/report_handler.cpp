@@ -384,28 +384,23 @@ VarsToReport ReportHandler::get_lfp_vars_to_report(const NrnThread& nt,
             }
         }
         std::vector<VarWithMapping> to_report;
-        if(report.section_all_compartments || offset_lfp == 0) {
-            const auto& cell_mapping = mapinfo->get_cell_mapping(gid);
-            if (cell_mapping == nullptr) {
-                std::cerr << "[LFP] Error : Compartment mapping information is missing for gid " << gid
-                        << '\n';
-                nrn_abort(1);
-            }
-            int num_electrodes = cell_mapping->num_electrodes();
-            for (int electrode_id = 0; electrode_id < num_electrodes; electrode_id++) {
-                to_report.emplace_back(VarWithMapping(electrode_id, report_variable + offset_lfp));
-                offset_lfp++;
-            }
+        const auto& cell_mapping = mapinfo->get_cell_mapping(gid);
+        if (cell_mapping == nullptr) {
+            std::cerr << "[LFP] Error : Compartment mapping information is missing for gid " << gid
+                    << '\n';
+            nrn_abort(1);
         }
-        // Normal LFP report
-        if(report.section_all_compartments) {
-            if (!to_report.empty()) {
-                vars_to_report[gid] = to_report;
-            }
+        int num_electrodes = cell_mapping->num_electrodes();
+        for (int electrode_id = 0; electrode_id < num_electrodes; electrode_id++) {
+            to_report.emplace_back(VarWithMapping(electrode_id, report_variable + offset_lfp));
+            offset_lfp++;
         }
-        // LFP report summing across cells, inserting fake gid 0
-        else if (offset_lfp == 0) {
-            vars_to_report[0] = to_report;
+        if (!to_report.empty()) {
+            vars_to_report[gid] = to_report;
+        }
+        // single value report
+        if(!report.section_all_compartments) {
+            return vars_to_report;
         }
     }
     return vars_to_report;

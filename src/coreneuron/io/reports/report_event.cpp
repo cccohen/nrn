@@ -38,10 +38,6 @@ ReportEvent::ReportEvent(double dt,
     nrn_assert(filtered_gids.size());
     step = tstart / dt;
     reporting_period = static_cast<int>(report_dt / dt);
-    /*gids_to_report.reserve(filtered_gids.size());
-    for (const auto& gid: filtered_gids) {
-        gids_to_report.push_back(gid.first);
-    }*/
     std::sort(gids_to_report.begin(), gids_to_report.end());
 }
 
@@ -71,49 +67,6 @@ void ReportEvent::summation_alu(NrnThread* nt) {
         }
     }
 }
-
-/*void ReportEvent::lfp_calc(NrnThread* nt) {
-    auto* mapinfo = static_cast<NrnThreadMappingInfo*>(nt->mapping);
-    double* fast_imem_rhs = nt->nrn_fast_imem->nrn_sav_rhs;
-    auto& summation_report = nt->summation_report_handler_->summation_reports_[report_path];
-    std::unordered_map<int, double> sum_lfp_values;
-    for (const auto& gid: gids_to_report) {
-        const auto& cell_mapping = mapinfo->get_cell_mapping(gid);
-        int num_electrodes = cell_mapping->num_electrodes();
-        std::vector<double> lfp_values(num_electrodes, 0.0);
-        for (const auto& kv: cell_mapping->lfp_factors) {
-            int segment_id = kv.first;
-            const auto& factors = kv.second;
-            int electrode_id = 0;
-            for (const auto& factor: factors) {
-                double iclamp = 0.0;
-                for (const auto& value: summation_report.currents_[segment_id]) {
-                    double current_value = *value.first;
-                    int scale = value.second;
-                    iclamp += current_value * scale;
-                }
-                lfp_values[electrode_id] += (fast_imem_rhs[segment_id] + iclamp) * factor;
-                electrode_id++;
-            }
-        }
-        if(report_all_compartments) {
-            auto& to_report = vars_to_report[gid];
-            for (int i = 0; i < to_report.size(); i++) {
-                *(to_report[i].var_value) = lfp_values[i];
-            }
-        } else {
-            for (int i=0; i < num_electrodes; i++) {
-                sum_lfp_values[i] += lfp_values[i];
-            }
-        }
-    }
-    if(!report_all_compartments) {
-        auto& to_report = vars_to_report[0];
-        for (int i = 0; i < to_report.size(); i++) {
-            *(to_report[i].var_value) = sum_lfp_values[i];
-        }
-    }
-}*/
 
 void ReportEvent::lfp_calc(NrnThread* nt) {
     auto* mapinfo = static_cast<NrnThreadMappingInfo*>(nt->mapping);
@@ -157,7 +110,7 @@ void ReportEvent::lfp_calc(NrnThread* nt) {
         {
             std::swap(sum_lfp_values, global_sum_lfp_values);
         }
-        update_report_values(0, global_sum_lfp_values);
+        update_report_values(vars_to_report.begin()->first, global_sum_lfp_values);
     }
 }
 
