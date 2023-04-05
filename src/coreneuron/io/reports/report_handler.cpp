@@ -86,9 +86,7 @@ void ReportHandler::create_report(ReportConfiguration& report_config,
                 nt, gids_to_report, report_config, mapinfo->_lfp.data(), nodes_to_gid);
             is_soma_target = report_config.section_type == SectionType::Soma ||
                              report_config.section_type == SectionType::Cell;
-            if (report_config.section_all_compartments || nrnmpi_myid == 0) {
-                register_section_report(nt, report_config, vars_to_report, is_soma_target);
-            }
+            register_section_report(nt, report_config, vars_to_report, is_soma_target);
             break;
         default:
             vars_to_report =
@@ -402,6 +400,9 @@ VarsToReport ReportHandler::get_lfp_vars_to_report(const NrnThread& nt,
         }
         // single value report
         if(!report.section_all_compartments) {
+            if (nrnmpi_myid != 0) {
+                vars_to_report.clear();
+            }
             return vars_to_report;
         }
     }
