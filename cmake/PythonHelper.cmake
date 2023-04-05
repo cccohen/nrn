@@ -105,6 +105,9 @@ if(NRN_ENABLE_PYTHON)
           "${pyexe} (${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}) is too old for NEURON, which requires at least ${NRN_MINIMUM_PYTHON_VERSION}"
       )
     endif()
+    # One final transformation, for convenience when using macOS and sanitizers that need to have
+    # their runtime libraries loaded, replace any shims with the real Python executable.
+    cpp_cc_strip_python_shims(EXECUTABLE "${pyexe}" OUTPUT pyexe)
     # Now Python3_INCLUDE_DIRS and friends correspond to ${pyexe} Assert that there is only one
     # value per Python version for now, as otherwise we'd need to handle a list of lists...
     list(LENGTH Python3_INCLUDE_DIRS num_include_dirs)

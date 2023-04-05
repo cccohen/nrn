@@ -233,6 +233,13 @@ include("${CODING_CONV_CMAKE}/3rdparty.cmake")
 cpp_cc_git_submodule(Random123)
 
 # =================================================================================================
+# Enable sanitizer support if the NRN_SANITIZERS variable is set. Comes befores PythonHelper.cmake.
+# =================================================================================================
+include(cmake/SanitizerHelper.cmake)
+# Make a CMake list NRN_SANITIZERS_LIST
+string(REPLACE "," ";" NRN_SANITIZERS_LIST "${NRN_SANITIZERS}")
+
+# =================================================================================================
 # Juggle PYTHON_EXECUTABLE and NRN_ENABLE_PYTHON_DYNAMIC to make sure that:
 #
 # * PYTHON_EXECUTABLE is the default Python version
@@ -404,13 +411,6 @@ if(NRN_ENABLE_PYTHON)
   # Make sure the USE_PYTHON macro is defined in the C++ code
   list(APPEND NRN_COMPILE_DEFS USE_PYTHON)
 endif()
-
-# =============================================================================
-# Enable sanitizer support if the NRN_SANITIZERS variable is set
-# =============================================================================
-include(cmake/SanitizerHelper.cmake)
-# Make a CMake list NRN_SANITIZERS_LIST
-string(REPLACE "," ";" NRN_SANITIZERS_LIST "${NRN_SANITIZERS}")
 
 # =============================================================================
 # Enable Threads support
