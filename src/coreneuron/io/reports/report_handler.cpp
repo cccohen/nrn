@@ -401,7 +401,7 @@ VarsToReport ReportHandler::get_lfp_vars_to_report(const NrnThread& nt,
         // single value report
         if(!report.section_all_compartments) {
             if (nrnmpi_myid != 0) {
-                vars_to_report.clear();
+                vars_to_report[gid].clear();
             }
             return vars_to_report;
         }
